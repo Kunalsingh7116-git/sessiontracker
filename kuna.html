@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Study Tracker</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Configure Tailwind to use custom colors to match the LeetCode heatmap
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'leetcode-dark': '#2d2d2d',
+                        'leetcode-light-dark': '#3f3f3f',
+                        // Updated gray-level-0 to a darker shade to match the reference image
+                        'gray-level-0': '#393939', 
+                        'green-level-1': '#9be9a8',
+                        'green-level-2': '#40c463',
+                        'green-level-3': '#30a14e',
+                        'green-level-4': '#216e39',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* A more dynamic and professional background */
+        body {
+            background: #1a1a1a;
+            color: #ccc;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            transition: background-color 0.5s ease;
+        }
+
+        /* Container with a refined, semi-transparent design for a premium feel */
+        .main-container {
+            background: rgba(30, 30, 30, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            padding: 2rem;
+            max-width: 800px;
+            width: 100%;
+            transition: transform 0.3s ease-in-out;
+        }
+
+        /* Hover effect on the main container */
+        .main-container:hover {
+            transform: translateY(-5px);
+        }
+
+        /* Styles for the heatmap grid */
+        .heatmap-grid {
+            display: grid;
+            grid-template-columns: auto repeat(53, 1fr);
+            grid-auto-rows: 15px;
+            gap: 2px;
+        }
+
+        /* Animated day blocks */
+        .day-box {
+            width: 13px;
+            height: 13px;
+            border-radius: 3px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .day-box:hover {
+            transform: scale(1.15);
+            z-index: 10;
+        }
+
+        /* Animated tooltip */
+        .tooltip {
+            background-color: #3f3f3f;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 8px;
+            position: absolute;
+            z-index: 50;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%) scale(0.8);
+            white-space: nowrap;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .day-box:hover .tooltip {
+            opacity: 1;
+            transform: translateX(-50%) scale(1);
+        }
+
+        /* Responsive adjustments for smaller screens */
+        @media (max-width: 640px) {
+            .heatmap-grid {
+                grid-auto-rows: 12px;
+            }
+            .day-box {
+                width: 10px;
+                height: 10px;
+            }
+            .tooltip {
+                font-size: 0.75rem;
+            }
+        }
+
+        /* Styles for the month and weekday labels */
+        .month-label, .weekday-label {
+            font-size: 0.75rem;
+            color: #999;
+            text-align: left;
+            margin-right: 5px;
+            white-space: nowrap;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        /* Animated buttons with hover effects */
+        .animated-button {
+            transition: all 0.3s ease;
+            transform: scale(1);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(145deg, #30a14e, #216e39);
+        }
+        .animated-button:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            background: linear-gradient(145deg, #40c463, #30a14e);
+        }
+        .animated-button:active {
+            transform: translateY(1px) scale(0.98);
+        }
+        
+        .pause-button {
+            background: linear-gradient(145deg, #555, #444);
+        }
+        .pause-button:hover {
+            background: linear-gradient(145deg, #666, #555);
+        }
+        
+        .reset-button {
+            background: linear-gradient(145deg, #dc2626, #b91c1c);
+        }
+        .reset-button:hover {
+            background: linear-gradient(145deg, #ef4444, #dc2626);
+        }
+
+        /* Timer animation */
+        @keyframes pulse-timer {
+            0% { text-shadow: 0 0 5px rgba(255, 255, 255, 0); }
+            50% { text-shadow: 0 0 15px rgba(255, 255, 255, 0.5); }
+            100% { text-shadow: 0 0 5px rgba(255, 255, 255, 0); }
+        }
+        .pulse-animation {
+            animation: pulse-timer 1.5s infinite ease-in-out;
+        }
+
+        /* Message Box and Overlay */
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            opacity: 0;
+            background-color: #3f3f3f;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+            z-index: 50;
+            transition: all 0.3s ease-in-out;
+        }
+        .message-box.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 40;
+        }
+        
+        /* Flashing animation */
+        @keyframes flash-red {
+            0% { background-color: #242424; }
+            50% { background-color: #ff0000; }
+            100% { background-color: #242424; }
+        }
+        .flash-red-animation {
+            animation: flash-red 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-leetcode-dark text-gray-200 flex flex-col items-center min-h-screen p-4 font-sans">
+    <div class="main-container">
+        <!-- Header Section -->
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-white mb-2">My Study Heatmap</h1>
+        <p class="text-gray-400 mb-6" id="session-info">Track your 40-minute study sessions.</p>
+
+        <!-- Stats Section -->
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 text-sm sm:text-base">
+            <span class="text-white text-base font-semibold">
+                <span id="total-submissions">0</span> submissions in the past one year
+            </span>
+            <div class="flex gap-4">
+                <span class="text-gray-400">Total active days: <span id="total-active-days" class="text-white font-semibold">0</span></span>
+                <span class="text-gray-400">Max streak: <span id="max-streak" class="text-white font-semibold">0</span></span>
+            </div>
+        </div>
+
+        <!-- Timer Section -->
+        <div class="flex flex-col items-center justify-center gap-4 mb-8">
+            <div id="timer-display" class="text-6xl sm:text-8xl font-mono text-gray-200 font-bold mb-4">
+                40:00
+            </div>
+            <div class="flex flex-col sm:flex-row gap-4 w-full justify-center">
+                <button id="start-button" class="w-full sm:w-auto px-6 py-3 text-white font-bold rounded-md animated-button">
+                    Start Session
+                </button>
+                <button id="pause-button" class="w-full sm:w-auto px-6 py-3 text-white font-bold rounded-md animated-button pause-button hidden">
+                    Pause
+                </button>
+                <button id="reset-button-timer" class="w-full sm:w-auto px-6 py-3 text-white font-bold rounded-md animated-button reset-button hidden">
+                    Reset Timer
+                </button>
+            </div>
+        </div>
+
+        <!-- Heatmap Section -->
+        <div class="w-full overflow-x-auto p-2 heatmap-container-wrapper">
+            <div id="heatmap" class="heatmap-grid w-max mx-auto"></div>
+        </div>
+
+        <!-- Legend -->
+        <div class="flex items-center justify-end mt-4 text-xs text-gray-400">
+            Less
+            <div class="ml-2 flex gap-1">
+                <div class="day-box !w-3 !h-3 bg-gray-level-0"></div>
+                <div class="day-box !w-3 !h-3 bg-green-level-1"></div>
+                <div class="day-box !w-3 !h-3 bg-green-level-2"></div>
+                <div class="day-box !w-3 !h-3 bg-green-level-3"></div>
+                <div class="day-box !w-3 !h-3 bg-green-level-4"></div>
+            </div>
+            <span class="ml-2">More</span>
+        </div>
+        
+        <!-- Display Firestore User ID for debugging/sharing -->
+        <div class="mt-8 text-xs text-gray-500 text-center">
+            User ID: <span id="user-id-display" class="font-mono text-gray-400">Loading...</span>
+        </div>
+
+        <!-- Message Box for Timer Completion -->
+        <div id="message-box" class="hidden">
+            <div class="overlay"></div>
+            <div class="message-box flex flex-col items-center">
+                <p id="message-text" class="text-xl font-bold text-white mb-4 text-center"></p>
+                <button id="close-message" class="px-6 py-2 bg-green-level-3 text-white font-bold rounded-md hover:bg-green-level-4 transition-colors">
+                    Awesome!
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- Include Firebase script with type="module" -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let userId = null;
+        let timerInterval;
+        let timeLeft;
+        let isBreakTime = false;
+        const SESSION_DURATION = 40 * 60;
+        const BREAK_DURATION = 5 * 60;
+        const audio = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
+
+        // Get references to elements
+        const heatmap = document.getElementById('heatmap');
+        const timerDisplay = document.getElementById('timer-display');
+        const sessionInfo = document.getElementById('session-info');
+        const startButton = document.getElementById('start-button');
+        const pauseButton = document.getElementById('pause-button');
+        const resetButtonTimer = document.getElementById('reset-button-timer');
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+        const closeMessageButton = document.getElementById('close-message');
+        const totalSubmissionsDisplay = document.getElementById('total-submissions');
+        const totalActiveDaysDisplay = document.getElementById('total-active-days');
+        const maxStreakDisplay = document.getElementById('max-streak');
+        const userIdDisplay = document.getElementById('user-id-display');
+        const originalTitle = document.title;
+        let favicon = document.querySelector('link[rel="icon"]');
+
+        const setupApp = (uid) => {
+            userId = uid;
+            userIdDisplay.textContent = userId;
+            const studySessionsRef = collection(db, 'artifacts', appId, 'users', userId, 'studySessions');
+
+            onSnapshot(studySessionsRef, (querySnapshot) => {
+                const studyData = {};
+                querySnapshot.forEach((doc) => {
+                    studyData[doc.id] = doc.data().sessions || 0;
+                });
+                renderHeatmap(studyData);
+            }, (error) => {
+                console.error("Error listening to Firestore:", error);
+            });
+        };
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                setupApp(user.uid);
+            } else {
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Firebase Auth failed:", error);
+                }
+            }
+        });
+
+        const getStudyDate = () => {
+            const now = new Date();
+            const hour = now.getHours();
+            if (hour < 5) {
+                const yesterday = new Date(now);
+                yesterday.setDate(now.getDate() - 1);
+                return formatDate(yesterday);
+            }
+            return formatDate(now);
+        };
+
+        const formatDate = (date) => {
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        };
+
+        const formatTooltipDate = (date) => {
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return date.toLocaleDateString('en-US', options);
+        };
+
+        const triggerAlert = () => {
+            audio.play().catch(error => {
+                console.log("Audio playback failed:", error);
+            });
+            document.body.classList.add('flash-red-animation');
+            setTimeout(() => {
+                document.body.classList.remove('flash-red-animation');
+            }, 500);
+        };
+
+        const showMessage = (message) => {
+            messageText.textContent = message;
+            messageBox.classList.remove('hidden');
+            messageBox.classList.add('show');
+        };
+
+        const hideMessage = () => {
+            messageBox.classList.add('hidden');
+            messageBox.classList.remove('show');
+            document.title = originalTitle;
+            updateFavicon('default');
+        };
+
+        const calculateMaxStreak = (studyData) => {
+            const sortedDates = Object.keys(studyData).filter(date => date && studyData[date] > 0).sort();
+            if (sortedDates.length === 0) {
+                return 0;
+            }
+
+            let maxStreak = 1;
+            let currentStreak = 1;
+            let lastDate = new Date(sortedDates[0]);
+
+            for (let i = 1; i < sortedDates.length; i++) {
+                const currentDate = new Date(sortedDates[i]);
+                const diffTime = currentDate.getTime() - lastDate.getTime();
+                const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+                
+                if (diffDays === 1) {
+                    currentStreak++;
+                } else if (diffDays > 1) {
+                    maxStreak = Math.max(maxStreak, currentStreak);
+                    currentStreak = 1;
+                }
+                lastDate = currentDate;
+            }
+
+            return Math.max(maxStreak, currentStreak);
+        };
+
+        const renderHeatmap = (studyData) => {
+            heatmap.innerHTML = '';
+            
+            let totalSubmissions = 0;
+            const activeDays = new Set();
+            for (const date in studyData) {
+                if (studyData[date] > 0) {
+                    totalSubmissions += studyData[date];
+                    activeDays.add(date);
+                }
+            }
+            const totalActiveDays = activeDays.size;
+            const maxStreak = calculateMaxStreak(studyData);
+
+            totalSubmissionsDisplay.textContent = totalSubmissions;
+            totalActiveDaysDisplay.textContent = totalActiveDays;
+            maxStreakDisplay.textContent = maxStreak;
+
+            const weekdayLabels = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+            const weekdayContainer = document.createElement('div');
+            weekdayContainer.style.gridColumn = '1';
+            weekdayContainer.style.gridRow = '2 / span 7';
+            weekdayContainer.style.display = 'grid';
+            weekdayContainer.style.gridTemplateRows = 'repeat(7, 1fr)';
+            for (let i = 0; i < 7; i++) {
+                const weekdayDiv = document.createElement('div');
+                weekdayDiv.classList.add('weekday-label', 'h-4');
+                weekdayDiv.textContent = weekdayLabels[i];
+                weekdayContainer.appendChild(weekdayDiv);
+            }
+            heatmap.appendChild(weekdayContainer);
+            
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const oneYearAgo = new Date(today);
+            oneYearAgo.setFullYear(currentYear - 1);
+            
+            const startOfGrid = new Date(oneYearAgo);
+            startOfGrid.setDate(oneYearAgo.getDate() - (oneYearAgo.getDay() === 0 ? 6 : oneYearAgo.getDay() - 1));
+            
+            let currentDate = new Date(startOfGrid);
+            let weekCount = 1;
+            let previousMonth = currentDate.getMonth();
+            
+            while (currentDate <= today) {
+                const currentMonth = currentDate.getMonth();
+                const dayOfWeek = currentDate.getDay();
+
+                if (currentDate.getDate() === 1 || (currentDate.getDay() === 1 && currentMonth !== previousMonth)) {
+                    const monthLabel = document.createElement('div');
+                    monthLabel.classList.add('month-label');
+                    monthLabel.textContent = monthNames[currentMonth];
+                    
+                    const col = Math.floor((currentDate - startOfGrid) / (1000 * 60 * 60 * 24) / 7) + 2;
+                    monthLabel.style.gridColumn = `${col}`;
+                    monthLabel.style.gridRow = `1`;
+                    heatmap.appendChild(monthLabel);
+                }
+                
+                const dateString = formatDate(currentDate);
+                const sessionCount = studyData[dateString] || 0;
+                
+                const dayBox = document.createElement('div');
+                let colorClass;
+                if (sessionCount === 0) {
+                    colorClass = 'bg-gray-level-0';
+                } else if (sessionCount <= 1) {
+                    colorClass = 'bg-green-level-1';
+                } else if (sessionCount <= 2) {
+                    colorClass = 'bg-green-level-2';
+                } else if (sessionCount <= 3) {
+                    colorClass = 'bg-green-level-3';
+                } else {
+                    colorClass = 'bg-green-level-4';
+                }
+
+                dayBox.classList.add('day-box', colorClass);
+
+                const tooltip = document.createElement('span');
+                tooltip.classList.add('tooltip');
+                tooltip.textContent = `${sessionCount} session${sessionCount !== 1 ? 's' : ''} on ${formatTooltipDate(currentDate)}`;
+                dayBox.appendChild(tooltip);
+                
+                const colIndex = Math.floor((currentDate - startOfGrid) / (1000 * 60 * 60 * 24) / 7) + 2;
+                dayBox.style.gridColumn = `${colIndex}`;
+                dayBox.style.gridRow = `${dayOfWeek === 0 ? 8 : dayOfWeek + 1}`;
+                
+                heatmap.appendChild(dayBox);
+                
+                currentDate.setDate(currentDate.getDate() + 1);
+                previousMonth = currentMonth;
+            }
+        };
+
+        const logSession = async () => {
+            if (!userId) {
+                console.error("User not authenticated.");
+                return;
+            }
+            
+            const todayString = getStudyDate();
+            const sessionDocRef = doc(db, 'artifacts', appId, 'users', userId, 'studySessions', todayString);
+            
+            try {
+                const sessionDoc = await getDoc(sessionDocRef);
+                const currentSessions = sessionDoc.exists() ? sessionDoc.data().sessions : 0;
+                
+                await setDoc(sessionDocRef, { sessions: currentSessions + 1 });
+                console.log("Session logged successfully!");
+            } catch (e) {
+                console.error("Error logging session: ", e);
+            }
+        };
+
+        const updateTimerDisplay = () => {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            const displayMinutes = String(minutes).padStart(2, '0');
+            const displaySeconds = String(seconds).padStart(2, '0');
+            timerDisplay.textContent = `${displayMinutes}:${displaySeconds}`;
+            
+            if (timerInterval && !isBreakTime) {
+                timerDisplay.classList.add('pulse-animation');
+            } else {
+                timerDisplay.classList.remove('pulse-animation');
+            }
+        };
+
+        const startTimer = () => {
+            if (timerInterval) return;
+
+            startButton.classList.add('hidden');
+            pauseButton.classList.remove('hidden');
+            resetButtonTimer.classList.remove('hidden');
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    triggerAlert();
+
+                    if (isBreakTime) {
+                        showMessage('Break is over! Time to start a new session.');
+                        isBreakTime = false;
+                        timeLeft = SESSION_DURATION;
+                        sessionInfo.textContent = `Track your 40-minute study sessions.`;
+                        startButton.textContent = 'Start Session';
+                    } else {
+                        logSession();
+                        showMessage('40-minute study session logged! Now take a 5-minute break.');
+                        isBreakTime = true;
+                        timeLeft = BREAK_DURATION;
+                        sessionInfo.textContent = `Take a 5-minute break.`;
+                        startButton.textContent = 'Start Break';
+                    }
+                    
+                    updateTimerDisplay();
+                    startButton.classList.remove('hidden');
+                    pauseButton.classList.add('hidden');
+                    resetButtonTimer.classList.add('hidden');
+
+                    document.title = "Time's up!";
+                    updateFavicon('alert');
+                }
+            }, 1000);
+        };
+
+        const pauseTimer = () => {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            startButton.classList.remove('hidden');
+            pauseButton.classList.add('hidden');
+            resetButtonTimer.classList.remove('hidden');
+            startButton.textContent = 'Continue';
+            timerDisplay.classList.remove('pulse-animation');
+        };
+
+        const resetTimer = () => {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            timeLeft = SESSION_DURATION;
+            isBreakTime = false;
+            updateTimerDisplay();
+            startButton.classList.remove('hidden');
+            pauseButton.classList.add('hidden');
+            resetButtonTimer.classList.add('hidden');
+            startButton.textContent = 'Start Session';
+            sessionInfo.textContent = `Track your 40-minute study sessions.`;
+            timerDisplay.classList.remove('pulse-animation');
+        };
+
+        const updateFavicon = (type) => {
+            const head = document.head;
+            if (!favicon) {
+                favicon = document.createElement('link');
+                favicon.rel = 'icon';
+                head.appendChild(favicon);
+            }
+            if (type === 'alert') {
+                const canvas = document.createElement('canvas');
+                const size = 32;
+                canvas.width = size;
+                canvas.height = size;
+                const context = canvas.getContext('2d');
+                context.fillStyle = '#ffffff';
+                context.fillRect(0, 0, size, size);
+                context.beginPath();
+                context.arc(size / 2, size / 2, size / 3, 0, 2 * Math.PI, false);
+                context.fillStyle = '#ff0000';
+                context.fill();
+                favicon.href = canvas.toDataURL('image/png');
+            } else {
+                const canvas = document.createElement('canvas');
+                const size = 32;
+                canvas.width = size;
+                canvas.height = size;
+                favicon.href = canvas.toDataURL('image/png');
+            }
+        };
+
+        startButton.addEventListener('click', startTimer);
+        pauseButton.addEventListener('click', pauseTimer);
+        resetButtonTimer.addEventListener('click', resetTimer);
+        closeMessageButton.addEventListener('click', hideMessage);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            timeLeft = SESSION_DURATION;
+            updateTimerDisplay();
+        });
+    </script>
+</body>
+</html>
